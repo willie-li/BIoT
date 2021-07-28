@@ -1,0 +1,3 @@
+include ':biot'
+include ':app'
+rootProject.name = "BIoT"
