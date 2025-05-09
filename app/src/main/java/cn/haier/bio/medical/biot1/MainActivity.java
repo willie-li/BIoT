@@ -3,6 +3,7 @@ package cn.haier.bio.medical.biot1;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -15,18 +16,24 @@ import cn.haier.bio.medical.biot.R;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
-public class MainActivity extends AppCompatActivity implements BIOTMqttListener {
+public class MainActivity extends AppCompatActivity implements BIOTMqttListener, View.OnClickListener {
     String topic;
     int qos = 0;
+    Button mBtn1;
+    Button mBtn2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        topic = "testtopic/1";
+        mBtn1 = findViewById(R.id.tv_hello);
+        mBtn1.setOnClickListener(this);
+        mBtn2 = findViewById(R.id.tv_hello2);
+        mBtn2.setOnClickListener(this);
+        topic = "status/handle/dev type/6666";
         BIOTManager.getInstance()
-                .init(getApplicationContext(),"tcp://192.168.137.1:61613","admin",
-                "password").changeListener(this);
+                .init(getApplicationContext(),"tcp://msgtest.haierbiomedical.com:1777","haier",
+                "1234").changeListener(this);
         //设置是否自动重连
         BIOTManager.getInstance().setAutoReconnect(false);
         //订阅主题
@@ -34,9 +41,7 @@ public class MainActivity extends AppCompatActivity implements BIOTMqttListener 
 //        //发布数据
 //        BIOTManager.getInstance().publishMqttData("testtopic1/1","I am a good man",0,true);
 //        //发布数据
-//        MqttMessage msg = new MqttMessage();
-//        msg.setPayload(getTestData());
-//        BIOTManager.getInstance().publishMqttData(topic,msg);
+
 
     }
 
@@ -114,5 +119,20 @@ public class MainActivity extends AppCompatActivity implements BIOTMqttListener 
         buf.readBytes(response, 0, response.length);
         buf.release();
         return response;
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()){
+            case R.id.tv_hello:
+                BIOTManager.getInstance().setMqttTopic(topic,qos);
+                break;
+            case R.id.tv_hello2:
+                MqttMessage msg = new MqttMessage();
+                msg.setPayload(getTestData());
+//                BIOTManager.getInstance().publishMqttData("/BE0FT3E1T/BE0FT3E1T00QGLB90014/user/update",msg);
+                BIOTManager.getInstance().publishMqttData("/BE0FT3E1T/BE0FT3E1T00QGLB90014/user/update","msg",0,false);
+                break;
+        }
     }
 }

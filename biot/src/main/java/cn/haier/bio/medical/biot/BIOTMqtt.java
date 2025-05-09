@@ -1,7 +1,9 @@
 package cn.haier.bio.medical.biot;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.text.TextUtils;
+import android.util.Log;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -15,7 +17,13 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.lang.ref.WeakReference;
 
-public class BIOTMqtt {
+import cn.haier.bio.medical.biot.db.DBHelper;
+import cn.haier.bio.medical.biot.db.DatabaseManger;
+import cn.haier.bio.medical.biot.db.MqttModel;
+import cn.haier.bio.medical.biot.wifi.NetworkChangeReceiver;
+import cn.haier.bio.medical.biot.wifi.NetworkUtil;
+
+public class BIOTMqtt implements NetworkChangeReceiver.NetStateChangeObserver {
     private static BIOTMqtt mqtt;
     private String serverUri;//(协议+地址+端口号)
     private String userName;
@@ -29,6 +37,7 @@ public class BIOTMqtt {
     private boolean autoReconnect = true;
     private WeakReference<BIOTMqttListener> listener;
 
+
     public BIOTMqtt(){}
 
     public void init(Context context, String serverUri, String userName,
@@ -38,10 +47,15 @@ public class BIOTMqtt {
         this.passWord = passWord;
         mContext = context;
         clientId = MqttClient.generateClientId();
+        NetworkChangeReceiver.registerObserver(mContext,this);
+        DatabaseManger.getInstance().init(context);
         initConnect();
     }
 
     public void changeListener(BIOTMqttListener listener) {
+        if(!NetworkUtil.isNetworkAvailable(mContext)){
+            listener.onBIotPrint("Mqtt 网络不可用");
+        }
         this.listener = new WeakReference<>(listener);
     }
 
@@ -77,10 +91,12 @@ public class BIOTMqtt {
         mqttConnectOptions.setKeepAliveInterval(20);
         try {
             mqttAndroidClient.connect(mqttConnectOptions);
+            DatabaseManger.getInstance().insertData("guoguoguo");
+            Log.d("ddd","size:"+ DatabaseManger.getInstance().queryAll().toString());
         } catch (Exception e) {
             e.printStackTrace();
             if (null != this.listener && null != this.listener.get()) {
-                listener.get().connectFail("BioT>>>>未设置BIOTMqttListener监听："+e.toString());
+                listener.get().connectFail("未设置BIOTMqttListener监听："+e.toString());
             }
         }
     }
@@ -179,12 +195,12 @@ public class BIOTMqtt {
         if (isConnect()) {
             try {
                 mqttAndroidClient.publish(topic, msg.getBytes(), qos, retained);
-                listener.get().onBIotPrint("BioT>>>>Mqtt 发布消息：" + msg);
+                listener.get().onBIotPrint("Mqtt 发布消息：" + msg);
                 if (!mqttAndroidClient.isConnected()) {
-                    listener.get().onBIotPrint("BioT>>>>Mqtt服务器已断开:"+mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
+                    listener.get().onBIotPrint("Mqtt服务器已断开:"+mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
                 }
             } catch (MqttException e) {
-                listener.get().onBIotPrint("BioT>>>>Error Publishing: " + e.toString());
+                listener.get().onBIotPrint("Error Publishing: " + e.toString());
             }
         }
     }
@@ -192,12 +208,12 @@ public class BIOTMqtt {
         if (isConnect()) {
             try {
                 mqttAndroidClient.publish(topic, msg);
-                listener.get().onBIotPrint("BioT>>>>Mqtt 发布消息：" + toHexString(msg.getPayload()));
+                listener.get().onBIotPrint("Mqtt 发布消息：" + toHexString(msg.getPayload()));
                 if (!mqttAndroidClient.isConnected()) {
-                    listener.get().onBIotPrint("BioT>>>>Mqtt服务器已断开:"+mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
+                    listener.get().onBIotPrint("Mqtt服务器已断开:"+mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
                 }
             } catch (MqttException e) {
-                listener.get().onBIotPrint("BioT>>>>Error Publishing: " + e.toString());
+                listener.get().onBIotPrint("Error Publishing: " + e.toString());
             }
         }
     }
@@ -211,10 +227,27 @@ public class BIOTMqtt {
             mqttAndroidClient.disconnect();
             mqttAndroidClient.unregisterResources();
             mqtt = null;
+            DatabaseManger.getInstance().close();
+            NetworkChangeReceiver.unRegisterObserver(mContext,this);
             mqttAndroidClient = null;
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void onDisconnect() {
+        listener.get().onBIotPrint("network onDisconnect");
+    }
+
+    @Override
+    public void onMobileConnect() {
+        listener.get().onBIotPrint("network onMobileConnect");
+    }
+
+    @Override
+    public void onWifiConnect() {
+        listener.get().onBIotPrint("network onWifiConnect");
     }
 
     public class MyMqttCallbackExtended implements MqttCallbackExtended {
@@ -229,7 +262,6 @@ public class BIOTMqtt {
             if (null != listener && null != listener.get()) {
                 listener.get().connectSuccess(reconnect);
             }
-//            subscribeToTopic();
         }
 
         @Override
