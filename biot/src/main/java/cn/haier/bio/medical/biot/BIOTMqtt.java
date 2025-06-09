@@ -91,8 +91,8 @@ public class BIOTMqtt implements NetworkChangeReceiver.NetStateChangeObserver {
         mqttConnectOptions.setKeepAliveInterval(20);
         try {
             mqttAndroidClient.connect(mqttConnectOptions);
-            DatabaseManger.getInstance().insertData("guoguoguo");
-            Log.d("ddd","size:"+ DatabaseManger.getInstance().queryAll().toString());
+//            DatabaseManger.getInstance().insertData("guoguoguo");
+//            Log.d("ddd","size:"+ DatabaseManger.getInstance().queryAll().toString());
         } catch (Exception e) {
             e.printStackTrace();
             if (null != this.listener && null != this.listener.get()) {
